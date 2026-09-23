@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Notification, desktopCapturer, session } from "electron";
 import path from "path";
 import fs from "fs";
 
@@ -14,14 +14,15 @@ function createWindow() {
     electronWindow = new BrowserWindow({
         height: 1000,
         width: 1000,
-        fullscreen: true,
-        kiosk: true,
+        // fullscreen: true,
+        // kiosk: true,
         webPreferences: {
-
             devTools: true,
             preload: path.join(import.meta.dirname, 'preload.js')
         }
     })
+
+
 
     electronWindow.loadURL('http://localhost:5173')
 }
@@ -87,8 +88,28 @@ ipcMain.on("show-rules", () => {
 });
 
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     createWindow();
+
+    setInterval(async () => {
+        const sources = await desktopCapturer.getSources({types: ['screen'], thumbnailSize: {
+            width: 1920,
+            height: 1080
+        }})
+        
+        const folder = path.join(import.meta.dirname, "..", "screen-captures");
+        fs.mkdirSync(folder, { recursive: true });
+        const filePath = path.join(folder, `${Date.now()}-screen.png`);
+        fs.writeFileSync(filePath, sources[0].thumbnail.toPNG());
+        console.log(`Saved screenshot to ${filePath}`);
+    }, 5000);
+
+    electronWindow.webContents.on('before-input-event', (event, input) => {
+        console.log("Before Input Event:", input);
+        if (input.key === 'q') {
+            event.preventDefault();
+        }
+    });
 });
 
 
